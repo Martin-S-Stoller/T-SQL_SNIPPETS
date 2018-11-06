@@ -1,0 +1,44 @@
+USE [MASTER]
+
+IF OBJECT_ID('dbo.sp_LLFC_ListLastRestores') IS NULL
+  EXEC ('CREATE PROCEDURE dbo.sp_LLFC_ListLastRestores AS RETURN 0;');
+GO
+
+
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+-- =============================================
+-- Author:		Martin S. Stoller
+-- Version 20181106
+-- Description:	Returns the list of recent restores.
+-- =============================================
+ALTER PROCEDURE [dbo].[sp_LLFC_ListLastRestores]
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	SELECT  
+		rh.[destination_database_name] as [Destination DB]
+		, rh.[restore_date] as [Restore Datestamp]
+		, bs.[backup_start_date]  as [Backup Start Datestamp]
+		, bs.[backup_finish_date]  as [Backup End Datestamp]
+		, bs.[database_name] AS [Source DB] 
+		, bf.[physical_device_name] AS [Filename]
+	FROM    
+		msdb..restorehistory as rh
+		INNER JOIN msdb..backupset as bs 
+			ON rh.[backup_set_id] = bs.[backup_set_id]
+		INNER JOIN msdb..backupmediafamily bf 
+			ON bs.[media_set_id] = bf.[media_set_id]
+	ORDER BY 
+		rh.[restore_date] DESC;
+	
+END
+GO
+
+
+exec master.dbo.[sp_LLFC_ListLastRestores]
+go
