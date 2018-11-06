@@ -1,0 +1,55 @@
+USE [MASTER]
+
+IF OBJECT_ID('dbo.sp_LLFC_ListOpenCursors') IS NULL
+  EXEC ('CREATE PROCEDURE dbo.sp_LLFC_ListOpenCursors AS RETURN 0;');
+GO
+
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		Martin S. Stoller
+-- VERSION: 20180501
+-- Description:	Lists all open cursors on the server and when they started. 
+-- Used to find ancient zombie cursors.
+-- =============================================
+ALTER PROCEDURE [dbo].[sp_LLFC_ListOpenCursors]
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+	select 
+		s.session_id as [Session ID]
+		, c.is_open as [Crs Is Open]
+		, s.host_name as [Host Name]
+		, s.program_name as [Program Name]
+		, s.client_interface_name as [Clnt Int Name]
+		, s.login_name as [Login Name]
+		, d.[name] as [DB Name]
+		, c.cursor_id as [Crs ID]
+		, c.properties as [Crs Prop]
+		, c.creation_time as [Crs Created]
+		, con.[text] as [Crs Code]
+		, l.resource_type as [Rsc Type]
+		, l.request_type as [Rqst Type]
+		, l.request_Status as [Rqst Status]
+		, l.request_reference_count as [Rqst Ref Count]
+		, l.request_lifetime as [Rqst Lifetime]
+		, l.request_owner_type as [Rqst Ownr Type]
+	from 
+		sys.dm_exec_cursors(0) c
+		left outer join (select * from sys.dm_exec_connections c cross apply sys.dm_exec_sql_text(c.most_recent_sql_handle) mr) con on c.session_id = con.session_id
+		left outer join sys.dm_exec_sessions s on s.session_id = c.session_id
+		left outer join sys.dm_tran_locks l on l.request_session_id = c.session_id
+		left outer join sys.databases d on d.database_id = l.resource_database_id
+	where 
+		c.is_open  =1
+		--and c.creation_time < cast(getdate() as date)
+	order by 
+		c.creation_time;
+END
+GO
+EXEC [dbo].[sp_LLFC_ListOpenCursors];
+GO
